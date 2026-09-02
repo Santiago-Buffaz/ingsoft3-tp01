@@ -111,3 +111,31 @@ Las imágenes fueron construidas en una Mac con Apple Silicon y arquitectura `ar
 La estructura inicial, parte del código, los archivos Docker/Compose y la documentación fueron producidos con asistencia de IA.
 
 La verificación se realizó ejecutando personalmente los builds, Docker Compose, las pruebas de persistencia, la publicación de las imágenes, la descarga sin credenciales y el arranque mediante el Compose de registry. La asistencia de IA se utilizó como guía, pero los resultados se comprobaron mediante ejecuciones reales.
+
+## TP3 — Planificación y trazabilidad
+
+### Duración del sprint
+
+Se configuró un sprint de dos semanas, desde el 31/08/2026. Elegí esta duración porque permite trabajar con incrementos pequeños, recibir retroalimentación frecuente y mantener el trabajo alineado con el calendario de entregas de la materia.
+
+### Límite de trabajo en progreso
+
+Se configuró un límite WIP de 2 elementos en la columna `In Progress`. Como el proyecto es individual, se aplicó la regla de cantidad de personas más uno: un elemento principal en desarrollo y un segundo lugar disponible si el primero queda esperando una revisión o respuesta. Un límite mucho mayor aumentaría el cambio de contexto y dejaría de cumplir su función.
+
+### Diagnóstico de la historia mal escrita
+
+La historia “Como desarrollador quiero crear la tabla usuarios para guardar los datos” está mal planteada porque describe una tarea técnica y no un incremento de valor observable para un usuario.
+
+La reescribiría como: “Como administrador del estudio jurídico quiero registrar usuarios para asignarles permisos y controlar el acceso a LexAgenda”.
+
+### Problemas encontrados y resolución
+
+Al comenzar, GitHub CLI no tenía el permiso necesario para consultar y administrar Projects. El problema se resolvió ejecutando `gh auth refresh -s project` y autorizando nuevamente GitHub CLI desde el navegador.
+
+Además, los Projects personales se crean privados por defecto. Se cambió la visibilidad a pública y se verificó que los issues del repositorio fueran incorporados automáticamente al Project.
+
+### Asistencia de IA
+
+Se utilizó asistencia de IA para interpretar la consigna, organizar el procedimiento, redactar los textos iniciales de los issues y resolver dudas durante la configuración.
+
+La creación del Project, los issues, la jerarquía, el sprint, el tablero y sus automatizaciones fue realizada y verificada manualmente. También se comprobó que el Project fuera público y que la estructura coincidiera con los requisitos del TP3.
