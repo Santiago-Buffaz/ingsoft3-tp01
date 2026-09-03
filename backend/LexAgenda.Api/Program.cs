@@ -1,3 +1,4 @@
+// TP4: demostración del gate de integración continua.
 using System.Text.Json.Serialization;
 using LexAgenda.Api.Data;
 using LexAgenda.Api.Middleware;
