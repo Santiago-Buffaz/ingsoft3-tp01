@@ -1,5 +1,7 @@
 # LexAgenda — Gestión de Estudio Jurídico
 
+[![CI](https://github.com/Santiago-Buffaz/ingsoft3-tp01/actions/workflows/ci.yml/badge.svg)](https://github.com/Santiago-Buffaz/ingsoft3-tp01/actions/workflows/ci.yml)
+
 Aplicación full-stack pequeña para administrar clientes, casos y turnos de un estudio jurídico. Fue diseñada como app del semestre para Ingeniería del Software 3 (UCC, 2026): tiene reglas de negocio suficientes para testear, una arquitectura directa y un despliegue local reproducible con Docker Compose.
 
 ## Arranque desde cero (entrega TP2)
