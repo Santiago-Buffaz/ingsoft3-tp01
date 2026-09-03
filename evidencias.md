@@ -2,6 +2,32 @@
 
 Las capturas y salidas de esta sección deben corresponder a ejecuciones reales de este repositorio.
 
+## TP1 — Git colaborativo
+
+### 1. Push directo a `main` rechazado
+
+![Push directo a main rechazado](img/push-rechazado.png)
+
+GitHub rechazó el push directo porque el Ruleset obliga a que todos los cambios ingresen mediante Pull Request y no permite bypass al administrador.
+
+### 2. Conflicto de merge en el Pull Request
+
+![Pull Request bloqueado por conflicto](img/conflicto-pr.png)
+
+Las dos ramas modificaron la misma parte del `README.md`, por lo que GitHub no pudo elegir automáticamente qué versión conservar.
+
+### 3. Marcadores del conflicto
+
+![Marcadores del conflicto en README](img/marcadores-conflicto.png)
+
+Git mostró las dos alternativas entre `<<<<<<<`, `=======` y `>>>>>>>`. La resolución se hizo manualmente, se eliminaron los marcadores y se confirmó el contenido final.
+
+### 4. Release `v1.0.0`
+
+![Release v1.0.0 publicada](img/release-v1.0.0.png)
+
+La release `v1.0.0` identifica el estado correspondiente al TP1 y contiene una descripción legible de lo realizado.
+
 ## TP2 — Contenedores
 
 ### 1. Build y sistema end-to-end
