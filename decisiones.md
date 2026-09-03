@@ -211,3 +211,9 @@ La reutilización de capas se comprobó mediante una segunda ejecución, observa
 Se utilizó asistencia de IA para adaptar el workflow a la estructura de LexAgenda, interpretar los resultados de GitHub Actions, resolver la configuración de los checks y redactar parte de la documentación.
 
 La creación de ramas y commits, los Pull Requests, el fallo deliberado, la corrección, la configuración del Ruleset, la comprobación de la caché y los merges fueron realizados y verificados manualmente.
+
+## Aclaración general sobre la asistencia de IA
+
+Durante los cuatro trabajos prácticos utilicé asistencia de IA para interpretar las consignas, adaptar a macOS los comandos y procedimientos mostrados en las guías, convertirlos en un paso a paso más específico y resolver dudas o errores puntuales.
+
+La IA se utilizó como apoyo para comprender y ejecutar el proceso. Todas las operaciones, configuraciones, capturas, Pull Requests, ejecuciones de Docker y GitHub Actions, tags y releases fueron realizadas y verificadas personalmente.
