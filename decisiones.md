@@ -1,5 +1,23 @@
 # Decisiones de arquitectura y proceso
 
+## TP1 — Git y colaboración
+
+### Conflicto de merge
+
+Git no pudo resolver automáticamente el conflicto porque dos ramas modificaron la misma parte del README de maneras incompatibles. Git identificó ambas versiones, pero no podía decidir cuál representaba el resultado correcto.
+
+El conflicto se resolvió manualmente revisando los marcadores `<<<<<<<`, `=======` y `>>>>>>>`, conservando el contenido necesario y creando un commit de resolución.
+
+### Protección de main
+
+Se configuró un Ruleset activo sobre `main` para exigir que los cambios ingresen mediante Pull Request. Como el proyecto es individual, la cantidad de aprobaciones requeridas se dejó en cero, ya que GitHub no permite aprobar el propio Pull Request.
+
+Se comprobó la protección intentando realizar un push directo a `main`. GitHub rechazó la operación, demostrando que la regla también se aplica al propietario del repositorio.
+
+### Asistencia de IA
+
+Se utilizó asistencia de IA para interpretar los mensajes de Git, ordenar la resolución del conflicto y redactar parte de la documentación. El conflicto, el Pull Request, el push rechazado, el tag y la Release fueron ejecutados y comprobados manualmente.
+
 ## TP2 — Contenedores
 
 ### Aplicación elegida
@@ -139,3 +157,57 @@ Además, los Projects personales se crean privados por defecto. Se cambió la vi
 Se utilizó asistencia de IA para interpretar la consigna, organizar el procedimiento, redactar los textos iniciales de los issues y resolver dudas durante la configuración.
 
 La creación del Project, los issues, la jerarquía, el sprint, el tablero y sus automatizaciones fue realizada y verificada manualmente. También se comprobó que el Project fuera público y que la estructura coincidiera con los requisitos del TP3.
+
+## TP4 — Integración continua
+
+### Estructura del pipeline
+
+El pipeline está definido como código en `.github/workflows/ci.yml`. Se ejecuta en cada Pull Request dirigido a `main` y también en cada push a `main`.
+
+Se definieron dos jobs independientes: `build-backend` y `build-frontend`. Cada job utiliza su propio runner de GitHub Actions y ambos pueden ejecutarse en paralelo porque ninguno depende del resultado del otro.
+
+El backend se construye utilizando `backend/Dockerfile` y el frontend utilizando `frontend/Dockerfile`.
+
+### Caché de capas
+
+El workflow utiliza Docker Buildx y la caché de GitHub Actions. Se configuraron scopes separados para backend y frontend para evitar que las capas de las dos imágenes se mezclen.
+
+En el backend pueden reutilizarse la imagen base, la copia de los archivos de proyecto y la restauración de dependencias. Cuando cambia el código fuente, se reconstruyen las capas posteriores de copia y publicación.
+
+En el frontend pueden reutilizarse la imagen base, los archivos de dependencias y la ejecución de `npm ci`. Cuando cambia el código de la aplicación, se reconstruyen la copia del código y el build de Vite.
+
+La caché mejora el tiempo de ejecución, pero no es necesaria para que el pipeline funcione. Si desaparece, las imágenes se construyen nuevamente desde cero y la ejecución tarda más.
+
+### Uso de los Dockerfiles
+
+El pipeline utiliza los mismos Dockerfiles creados en el TP2. De esta manera, el procedimiento de construcción se mantiene definido en un único lugar y no se duplican comandos de compilación dentro del workflow.
+
+Esto evita diferencias entre las imágenes construidas localmente y las verificadas por GitHub Actions.
+
+### Gate de calidad
+
+El Ruleset de `main` exige que los checks `build-backend` y `build-frontend` terminen correctamente antes de permitir un merge. También exige que la rama esté actualizada con la versión más reciente de `main`.
+
+De esta manera, un cambio que no puede construir alguna de las imágenes no puede incorporarse a la rama principal.
+
+### Demostración rojo, bloqueo, arreglo y verde
+
+Para comprobar el gate se creó un Pull Request con un `using` inexistente en el backend. El job `build-backend` falló, mientras que `build-frontend` terminó correctamente. Como el check del backend era obligatorio, GitHub bloqueó el merge.
+
+Luego se eliminó la referencia inválida mediante un segundo commit en el mismo Pull Request. Los dos jobs finalizaron correctamente y GitHub habilitó el merge.
+
+También se mantuvo abierto un segundo Pull Request mientras cambiaba `main`. GitHub lo marcó como desactualizado y exigió actualizar la rama y ejecutar nuevamente los checks antes del merge.
+
+### Problemas encontrados y resolución
+
+El workflow del TP3 solamente realizaba `checkout`, por lo que fue reemplazado por el pipeline completo que construye las imágenes del backend y del frontend.
+
+Al configurar el Ruleset, inicialmente los nombres `build-backend` y `build-frontend` se agregaron como si fueran un único check. Se eliminó esa configuración y se añadieron nuevamente como dos checks independientes.
+
+La reutilización de capas se comprobó mediante una segunda ejecución, observando capas marcadas como `CACHED` tanto en el backend como en el frontend.
+
+### Asistencia de IA
+
+Se utilizó asistencia de IA para adaptar el workflow a la estructura de LexAgenda, interpretar los resultados de GitHub Actions, resolver la configuración de los checks y redactar parte de la documentación.
+
+La creación de ramas y commits, los Pull Requests, el fallo deliberado, la corrección, la configuración del Ruleset, la comprobación de la caché y los merges fueron realizados y verificados manualmente.
