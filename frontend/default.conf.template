@@ -1,7 +1,6 @@
 server {
     listen 80;
     server_name _;
-
     root /usr/share/nginx/html;
     index index.html;
 
@@ -9,13 +8,14 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
-    # El DNS embebido de Docker resuelve el servicio solo al recibir una petición.
-    resolver 127.0.0.11 valid=10s ipv6=off;
-    set $backend_api http://backend:8080;
+    # Se completan cuando arranca el contenedor, no al compilar React.
+    resolver ${DNS_RESOLVER} valid=10s ipv6=off;
+    set $backend_api ${BACKEND_URL};
 
     location /api/ {
         proxy_pass $backend_api;
-        proxy_set_header Host $host;
+        proxy_ssl_server_name on;
+        proxy_set_header Host $proxy_host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -23,5 +23,7 @@ server {
 
     location = /health {
         proxy_pass $backend_api;
+        proxy_ssl_server_name on;
+        proxy_set_header Host $proxy_host;
     }
 }
