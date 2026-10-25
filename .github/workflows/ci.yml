@@ -158,3 +158,88 @@ jobs:
           tags: ghcr.io/santiago-buffaz/ingsoft3-tp01-frontend:sha-${{ github.sha }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
+
+  deploy-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [build-backend, build-frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: qa
+      url: ${{ vars.URL_FRONT }}
+    steps:
+      - name: Disparar deploy del commit verificado en Render
+        env:
+          HOOK_API: ${{ secrets.RENDER_HOOK_API_QA }}
+          HOOK_FRONT: ${{ secrets.RENDER_HOOK_FRONT_QA }}
+        run: |
+          test -n "$HOOK_API"
+          test -n "$HOOK_FRONT"
+          curl -fsS --max-time 30 "$HOOK_API&ref=$GITHUB_SHA"
+          curl -fsS --max-time 30 "$HOOK_FRONT&ref=$GITHUB_SHA"
+
+      - name: Smoke test de QA
+        shell: bash
+        env:
+          URL_API: ${{ vars.URL_API }}
+          URL_FRONT: ${{ vars.URL_FRONT }}
+        run: |
+          test -n "$URL_API"
+          test -n "$URL_FRONT"
+          echo "Esperando a que QA responda..."
+          for i in $(seq 1 30); do
+            echo "Intento $i de 30"
+            if curl -fsS --max-time 10 "$URL_API/health" \
+               && curl -fsS --max-time 10 "$URL_API/api/clientes" > /dev/null \
+               && curl -fsS --max-time 10 "$URL_FRONT/" > /dev/null; then
+              echo "QA responde: API, consulta a BD y frontend."
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "QA no respondió dentro del plazo."
+          exit 1
+
+  deploy-prod:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: deploy-qa
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: ${{ vars.URL_FRONT }}
+    concurrency:
+      group: deploy-prod
+      cancel-in-progress: false
+    steps:
+      - name: Disparar deploy del commit verificado en Render
+        env:
+          HOOK_API: ${{ secrets.RENDER_HOOK_API_PROD }}
+          HOOK_FRONT: ${{ secrets.RENDER_HOOK_FRONT_PROD }}
+        run: |
+          test -n "$HOOK_API"
+          test -n "$HOOK_FRONT"
+          curl -fsS --max-time 30 "$HOOK_API&ref=$GITHUB_SHA"
+          curl -fsS --max-time 30 "$HOOK_FRONT&ref=$GITHUB_SHA"
+
+      - name: Smoke test de PROD
+        shell: bash
+        env:
+          URL_API: ${{ vars.URL_API }}
+          URL_FRONT: ${{ vars.URL_FRONT }}
+        run: |
+          test -n "$URL_API"
+          test -n "$URL_FRONT"
+          echo "Esperando a que PROD responda..."
+          for i in $(seq 1 30); do
+            echo "Intento $i de 30"
+            if curl -fsS --max-time 10 "$URL_API/health" \
+               && curl -fsS --max-time 10 "$URL_API/api/clientes" > /dev/null \
+               && curl -fsS --max-time 10 "$URL_FRONT/" > /dev/null; then
+              echo "PROD responde: API, consulta a BD y frontend."
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "PROD no respondió dentro del plazo."
+          exit 1
