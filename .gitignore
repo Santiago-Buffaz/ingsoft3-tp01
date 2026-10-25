@@ -18,3 +18,7 @@ frontend-coverage/
 **/coverage.cobertura.xml
 **/coverage.json
 **/*.tsbuildinfo
+
+# TP7: reportes de pruebas generados.
+frontend/playwright-report/
+frontend/test-results/

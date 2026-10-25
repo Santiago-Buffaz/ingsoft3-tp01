@@ -8,3 +8,7 @@ npm-debug.log*
 # TP5: resultados generados.
 coverage/
 *.tsbuildinfo
+
+# TP7: reportes de pruebas generados.
+playwright-report/
+test-results/
