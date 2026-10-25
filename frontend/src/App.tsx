@@ -9,7 +9,7 @@ export default function App() {
       <aside className="sidebar">
         <div className="brand">
           <span className="brand-mark">L</span>
-          <span><strong>LexAgenda</strong><small>Agenda del estudio</small></span>
+          <span><strong>LexAgenda</strong><small>TP6 · Ensayo de recuperación</small></span>
         </div>
         <nav aria-label="Navegación principal">
           <NavLink to="/" end><span>⌂</span> Agenda</NavLink>
