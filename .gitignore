@@ -10,3 +10,11 @@ frontend/dist/
 *.user
 *.suo
 *.log
+
+# TP5: resultados generados.
+coveragereport/
+frontend/coverage/
+frontend-coverage/
+**/coverage.cobertura.xml
+**/coverage.json
+**/*.tsbuildinfo

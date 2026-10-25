@@ -4,3 +4,7 @@ dist/
 .idea/
 .vscode/
 npm-debug.log*
+
+# TP5: resultados generados.
+coverage/
+*.tsbuildinfo

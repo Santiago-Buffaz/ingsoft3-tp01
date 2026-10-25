@@ -217,3 +217,6 @@ La creación de ramas y commits, los Pull Requests, el fallo deliberado, la corr
 Durante los cuatro trabajos prácticos utilicé asistencia de IA para interpretar las consignas, adaptar a macOS los comandos y procedimientos mostrados en las guías, convertirlos en un paso a paso más específico y resolver dudas o errores puntuales.
 
 La IA se utilizó como apoyo para comprender y ejecutar el proceso. Todas las operaciones, configuraciones, capturas, Pull Requests, ejecuciones de Docker y GitHub Actions, tags y releases fueron realizadas y verificadas personalmente.
+## TP5 - Calidad automatizada
+
+Implementación en curso. Se incorporan tests unitarios, mocks y cobertura en ambos jobs. Los enlaces y valores definitivos se completarán tras comprobar las corridas y los dos PRs exigidos.
