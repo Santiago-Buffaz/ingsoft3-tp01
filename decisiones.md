@@ -217,6 +217,96 @@ La creación de ramas y commits, los Pull Requests, el fallo deliberado, la corr
 Durante los cuatro trabajos prácticos utilicé asistencia de IA para interpretar las consignas, adaptar a macOS los comandos y procedimientos mostrados en las guías, convertirlos en un paso a paso más específico y resolver dudas o errores puntuales.
 
 La IA se utilizó como apoyo para comprender y ejecutar el proceso. Todas las operaciones, configuraciones, capturas, Pull Requests, ejecuciones de Docker y GitHub Actions, tags y releases fueron realizadas y verificadas personalmente.
-## TP5 - Calidad automatizada
 
-Implementación en curso. Se incorporan tests unitarios, mocks y cobertura en ambos jobs. Los enlaces y valores definitivos se completarán tras comprobar las corridas y los dos PRs exigidos.
+## TP5 - Calidad automatizada
+### Lógica elegida y técnicas
+
+Elegí probar reglas que afectan el uso de LexAgenda: el vencimiento de un caso no puede ser anterior a su apertura; las transiciones de estado deben ser válidas; los turnos sólo admiten duraciones de 30, 60 o 90 minutos; dos turnos contiguos no deben tratarse como superpuestos; PENDIENTE y CONFIRMADO son los estados activos que reservan horario; y el inicio de un turno debe ser posterior al reloj actual.
+
+La suite final del backend contiene 20 métodos de test y ejecuta 29 casos. Los métodos siguen Arrange, Act, Assert; los Theory e InlineData repiten un comportamiento con entradas distintas y no se cuentan como métodos adicionales. Se verifican resultados y errores concretos, incluidos inicio igual a ahora, duración inválida y borde de horarios contiguos.
+
+En frontend se ejecutan 34 casos unitarios sin DOM. Se prueban el cliente HTTP, el armado de rutas, filtros y cuerpos JSON, la traducción de errores y las utilidades de fecha. Se usan it.each, casos de error y vi.fn. TZ=UTC y el reloj falso evitan depender de la fecha o zona del runner. El reloj se restaura después de cada test.
+
+No agregué una regla nueva de negocio para llegar al mínimo: las reglas ya existían. Las funciones descriptivas de estados del primer PR son código nuevo acotado para demostrar el efecto de agregar lógica sin tests; no cambian las transiciones permitidas ni se conectaron a la UI.
+
+### Mocks y cambios para poder probar
+
+El backend ya tenía IAppClock inyectado en TurnoService. La validación temporal estaba dentro de un método del servicio que también utiliza la base de datos. Extraje esa condición a TurnoRules.ValidarInicio y mantuve su llamada desde el servicio. Así puedo verificar la misma regla sin montar Postgres.
+
+Con Moq, SetupGet fija UtcNow y VerifyGet comprueba que el reloj se consultó exactamente una vez; VerifyNoOtherCalls verifica que no hubo otras interacciones. La respuesta fija es el papel de stub; la comprobación de la interacción es lo que hace que el test use un mock. También compruebo la excepción o ausencia de excepción: verificar sólo la llamada no probaría la regla.
+
+En frontend convertí el cliente en createApi(fetcher), con globalThis.fetch como valor por defecto. La exportación api conserva las llamadas de la aplicación. En los tests inyecto vi.fn y respuestas HTTP en memoria; los asserts comprueban ruta, método, cuerpo y resultado, sin salir a la red. Las utilidades puras no necesitan mocks.
+
+### Cobertura, métrica y elección del umbral
+
+El gate final del backend exige **12% de líneas**. El primer piso fue 8,5%, contra la base medida de aproximadamente 8,76%. Después de incorporar las pruebas del código nuevo elevé el piso a 12%. No bajé el umbral para hacer pasar el PR.
+
+En la corrida verde enlazada abajo, el backend registra **12.59% de líneas** (51/405) y **28.00% de ramas**. Ramas se informa siempre, aunque el gate de backend esté configurado sobre líneas.
+
+Esta cobertura global sigue siendo baja: hay servicios, controladores y manejo de errores que cuentan y todavía no están probados por esta suite. El 12% es un punto inicial para impedir retrocesos sobre la base medida, no una afirmación de cobertura suficiente para producción. Para subirlo tengo que probar más comportamientos de servicios y sus bordes, aislar sus dependencias cuando corresponda e incorporar pruebas de integración para la colaboración con datos. Excluir esos servicios para aumentar el porcentaje escondería el trabajo pendiente.
+
+El gate del frontend exige **90% de líneas y 80% de ramas** sobre la lógica TypeScript incluida. El resultado real es **100.00% de líneas** (50/50) y **100.00% de ramas**. Se eligió un margen por debajo de esa base que aun así detecta el agregado concreto de código sin tests. No garantiza detectar cualquier cambio de cualquier tamaño.
+
+Los summaries y ambos reportes HTML descargables están en [esta corrida verde](https://github.com/Santiago-Buffaz/ingsoft3-tp01/actions/runs/40151951191). Los porcentajes de esta sección se tomaron de sus artefactos, no de una corrida local distinta.
+
+### Alcance y exclusiones de cobertura
+
+- Backend: se excluye Program, que arma la aplicación y registra servicios/rutas; se verificó que las reglas bajo prueba están fuera de ese arranque.
+- Backend: se excluye LexAgenda.Api.Data, que contiene el DbContext y el mapeo de persistencia, sin las reglas elegidas. La configuración de datos requiere pruebas de integración y no se considera probada por esta exclusión.
+- Backend: se excluyen LexAgenda.Api.Models y LexAgenda.Api.DTOs, clases de datos y transporte sin comportamiento propio en esta versión.
+- Backend: servicios, reglas, controladores, middleware y excepciones siguen en la cuenta. No se filtró el reporte a una sola clase para mostrar un número mayor. El proyecto de tests no forma parte del código de aplicación medido por Coverlet.
+- Frontend: include abarca src/**/*.ts y excluye src/**/*.d.ts y src/types/** porque son declaraciones de tipos, sin comportamiento ejecutable. El cliente HTTP y las utilidades entran aunque ningún test los importe.
+- Frontend: los archivos TSX de arranque, componentes y páginas, así como CSS y recursos estáticos, quedan fuera de este alcance unitario sin DOM. Esto limita el significado del 100%: no significa que la interfaz ni toda LexAgenda estén cubiertas. Las pruebas de UI e integración quedan pendientes; no se considera demostrado su comportamiento por medir sólo los archivos TS.
+- Las carpetas de tests, dependencias, builds y reportes no son código de aplicación dentro del alcance configurado.
+
+### Una única medición y ejecución en Docker
+
+Se usa coverlet.msbuild 6.0.4 para instrumentar, exportar coverage.cobertura.xml y exigir el umbral en la misma ejecución. No se instaló coverlet.collector ni se agregó --collect. Es una adaptación declarada de la práctica sugerida: [Coverlet indica elegir una integración y no instalar ambas juntas](https://github.com/coverlet-coverage/coverlet#msbuild-integration-guide-known-issue). ReportGenerator 5.4.18 transforma ese mismo XML en HTML y summary, sin aplicar un segundo filtro de clases que cambie el alcance.
+
+Vitest y coverage-v8 están fijados en 4.1.0 para el Vite 8.2.1 del proyecto. Se versionó package-lock.json para que npm ci reproduzca las dependencias resueltas.
+
+Los jobs conservan los nombres build-backend y build-frontend del TP4. Ambos construyen la imagen final y la etapa test de su Dockerfile; test está entre build y final y hereda el directorio de trabajo. load: true permite ejecutar la imagen de tests en el runner; push: false evita publicarla. Hay cuatro scopes de caché separados.
+
+Los tests se ejecutan mediante el ENTRYPOINT al hacer docker run. Un volumen guarda sus reportes fuera del contenedor. !cancelled() permite publicar los reportes después de un fallo de cobertura; no convierte el test fallido en éxito. El frontend tiene reportOnFailure. Los artefactos coverage-backend y coverage-frontend conservan HTML y datos de medición durante 30 días. Se comprobó su presencia en la corrida enlazada.
+
+### Primer PR: rojo por cobertura, corrección y merge
+
+En el [primer PR, ya mergeado](https://github.com/Santiago-Buffaz/ingsoft3-tp01/pull/17), agregué EstadoTurnoTexto.cs y estadoTurnoTexto.ts sin sus pruebas. Compilaron y todos los tests existentes pasaron, pero aumentó el código medido sin aumentar el código cubierto.
+
+En [la corrida roja por cobertura](https://github.com/Santiago-Buffaz/ingsoft3-tp01/actions/runs/40151213292), build-backend quedó rojo por **líneas: 8.39% < 8,5%**, y build-frontend por **líneas: 88.00% < 90%**. El rojo se produjo por el umbral, no por un assert forzado ni por compilación. El log de cada job permite distinguirlo.
+
+Agregué las pruebas de los cuatro estados y del estado desconocido, con asserts sobre los textos o la excepción. En backend también elevé el piso a 12%. La [corrida verde con esos tests](https://github.com/Santiago-Buffaz/ingsoft3-tp01/actions/runs/40151951191) permitió el merge. Los checks del TP4 siguen requeridos por main: el código de salida de la herramienta pasa a Docker, de Docker al step y del step al job obligatorio.
+
+### Segundo PR: prueba vigente del freno
+
+El [segundo PR, abierto y rojo](https://github.com/Santiago-Buffaz/ingsoft3-tp01/pull/18) agrega prioridadCasoTexto.ts sin sus tests. No se mergea ni se cierra hasta la defensa. La compilación y los tests existentes pasan; build-frontend falla por cobertura de líneas. Se mantiene como PR normal, no como borrador, para que el motivo demostrable del bloqueo sea el required check.
+
+El primer PR demuestra la historia completa; éste permite ver que el freno sigue funcionando. El tag v5.0.0 corresponde a main con la implementación corregida y esta documentación, sin el archivo deliberadamente sin probar.
+
+### Cobertura alta no equivale a calidad
+
+Mi ejemplo es TurnoRules.SeSuperponen. Llamar al método sin assert ejecutaría sus líneas y sumaría cobertura aunque aceptara una superposición incorrecta. El test de turnos contiguos sí exige false: detectaría, por ejemplo, que se reemplazara el límite estricto por uno inclusivo. El porcentaje sólo informa ejecución; el assert comprueba el resultado esperado.
+
+CasoRules muestra otra limitación: todas sus líneas pueden estar ejecutadas mientras falta una alternativa de la condición de vencimiento. Por eso miro también ramas. Ni un porcentaje alto ni tests verdes prueban que haya interpretado bien todos los requisitos.
+
+### Ejercicio obligatorio del camino sin cubrir
+
+Abrí el HTML del backend y revisé [CasoRules.ValidarFechas, línea 20](https://github.com/Santiago-Buffaz/ingsoft3-tp01/blob/aaebdb553c088346fda22d1469623712ff3a86f4/backend/LexAgenda.Api/Services/CasoRules.cs#L20). La condición es vencimiento.HasValue && vencimiento.Value < apertura.
+
+Los tests actuales prueban una fecha anterior y una igual a la apertura, pero no vencimiento = null. La entrada concreta apertura = new DateOnly(2026, 8, 20), vencimiento = null recorre HasValue == false y el cortocircuito del &&: no debe evaluar Value ni lanzar BusinessException.
+
+Decisión: **no agregué ese test en este cierre** y lo registré como caso pendiente. La consigna permite esa decisión; lo obligatorio es identificar el camino, dar una entrada concreta y explicar qué hice. Esto no es una rama de Git: es una alternativa de ejecución del código.
+
+### Problemas y soluciones
+
+La Mac no necesita dotnet ni npm instalados: los comandos locales usan las imágenes SDK 8 y Node 22. Las versiones de Vitest y coverage-v8 se fijaron juntas para evitar incompatibilidad con Vite. Usé el package-lock.json preparado con npm 11.6.2 dentro de Node; las imágenes instalan con npm ci a partir de ese lock.
+
+La ruta de Cobertura es plana, TestResults/coverage.cobertura.xml, porque se usa la integración MSBuild. No se usó el patrón con subcarpeta GUID del ejemplo collector. Esto mantiene reporte y gate sobre el mismo XML.
+
+Los tests de fechas fijan UTC y un instante conocido. El formato de hora puede incluir el sufijo regional a. m.; el assert acepta esa decoración, pero comprueba exactamente hora y minutos. Los fallos deliberados de los PRs se resolvieron agregando tests en el primero y se conservaron como evidencia en el segundo.
+
+### Uso de IA y verificación
+
+Usé ChatGPT/Codex para preparar los tests, la configuración y este borrador. Apliqué los archivos preparados con un asistente local por etapas; no escribí manualmente todo ese código. Los cambios también se probaron en una copia aislada.
+
+Para verificar mi entrega, ejecuté los comandos y abrí los reportes. En GitHub comprobé el primer PR rojo, su corrección y merge, y el segundo PR que quedó abierto. Los porcentajes y enlaces de este documento salen de esas corridas. El caso de vencimiento nulo quedó identificado como pendiente.
