@@ -42,7 +42,7 @@ export default function ClientesPage() {
   }
 
   return <>
-    <header className="page-header"><div><p className="eyebrow">Directorio</p><h1>Clientes</h1><p>Datos de contacto, casos y próximas consultas en un solo lugar.</p></div><button className="button primary" onClick={() => setModal('crear')}>+ Nuevo cliente</button></header>
+    <header className="page-header"><div><p className="eyebrow">Directorio</p><h1>Clientes</h1><p>Datos de contacto, casos y próximas consultas en un solo lugar.</p></div><button className="button primary" onClick={() => setModal('crear')}>+ Alta de cliente</button></header>
     {feedback && <Feedback type={feedback.type}>{feedback.text}</Feedback>}
     <div className="split-layout">
       <section className="panel list-panel">
