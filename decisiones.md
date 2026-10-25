@@ -1,3 +1,21 @@
+<!-- TP7:ENLACES:INICIO -->
+## Enlaces del TP7
+
+- [Paquete público del backend](https://github.com/users/Santiago-Buffaz/packages/container/package/ingsoft3-tp01-backend) · `ghcr.io/santiago-buffaz/ingsoft3-tp01-backend`.
+- [Paquete público del frontend](https://github.com/users/Santiago-Buffaz/packages/container/package/ingsoft3-tp01-frontend) · `ghcr.io/santiago-buffaz/ingsoft3-tp01-frontend`.
+- Etiqueta de ambas imágenes en el ensayo: `sha-b1bd4651506fd82d857959f67134cb8e2fdefbb8`; en la recuperación: `sha-300a3070ba83f7b6dbd333c3235da25c9bec2caf`.
+- [Commit que cambió el botón](https://github.com/Santiago-Buffaz/ingsoft3-tp01/commit/b1bd4651506fd82d857959f67134cb8e2fdefbb8) · [PR #27](https://github.com/Santiago-Buffaz/ingsoft3-tp01/pull/27) · [corrida roja #38](https://github.com/Santiago-Buffaz/ingsoft3-tp01/actions/runs/40244244743).
+- Reportes de esa misma corrida: [integración verde, 3 aprobadas](https://github.com/Santiago-Buffaz/ingsoft3-tp01/actions/runs/40244244743/artifacts/12618008453) · [E2E rojo, 3 fallidas, con captura y trazas](https://github.com/Santiago-Buffaz/ingsoft3-tp01/actions/runs/40244244743/artifacts/12618078760).
+- [Corrección, PR #28](https://github.com/Santiago-Buffaz/ingsoft3-tp01/pull/28) · [corrida completa verde #40, posterior al ensayo y hasta PROD](https://github.com/Santiago-Buffaz/ingsoft3-tp01/actions/runs/40245238070) · [promoción a producción](https://github.com/Santiago-Buffaz/ingsoft3-tp01/actions/runs/40245238070/job/121325956904).
+- Reportes de recuperación: [integración verde](https://github.com/Santiago-Buffaz/ingsoft3-tp01/actions/runs/40245238070/artifacts/12618322494) · [E2E verde](https://github.com/Santiago-Buffaz/ingsoft3-tp01/actions/runs/40245238070/artifacts/12618801151).
+- QA: [frontend](https://lexagenda-front-qa-sbuffaz.onrender.com) · [API](https://lexagenda-api-qa-sbuffaz.onrender.com) · [salud](https://lexagenda-api-qa-sbuffaz.onrender.com/health).
+- PROD: [frontend](https://lexagenda-front-prod-sbuffaz.onrender.com) · [API](https://lexagenda-api-prod-sbuffaz.onrender.com) · [salud](https://lexagenda-api-prod-sbuffaz.onrender.com/health).
+
+La corrida #40 documenta la recuperación del ensayo. El cierre documental también genera imágenes y otra corrida; el tag `v7.0.0` se coloca sólo después de verificar cuál de esos commits está en PROD. Las notas de la release registran esa corrida final y su SHA. `git rev-list -n1 v7.0.0` permite obtenerlo sin suponer que coincide con la punta actual de `main`.
+
+Las secciones TP1–TP6 se conservan como historia de cada etapa. La sección TP7 al final describe el proceso vigente. Las URLs de QA y PROD se mantienen para la defensa; los detalles privados de Render se muestran desde el panel.
+<!-- TP7:ENLACES:FIN -->
+
 <!-- TP6:ENLACES:INICIO -->
 ## Enlaces de este TP — TP6
 
@@ -446,3 +464,88 @@ Para dar por terminada la recuperación comprobé el commit A en Render, el subt
 
 Usé ChatGPT/Codex para preparar una guía adaptada a LexAgenda, el workflow, la plantilla de nginx y una base de esta explicación. Apliqué los archivos preparados por etapas con un asistente local; no escribí manualmente todo el código. La verificación la hice ejecutando los pasos y leyendo sus resultados: CI, publicación pública, QA/PROD, revisión y rechazo, separación de datos y rollback con horas de Render. Revisé el texto para que describa lo que realmente hice y no tomé como evidencia una respuesta de la IA.
 <!-- TP6:DECISIONES:FIN -->
+
+<!-- TP7:DECISIONES:INICIO -->
+## TP7 — Imágenes, integración y E2E como condición de promoción
+
+### La unidad que se promueve
+
+En TP6 Actions publicaba imágenes, pero Render reconstruía el repositorio para cada entorno. El mismo commit no garantizaba los mismos binarios: una imagen base o una dependencia externa podía cambiar entre construcciones. En TP7 Render ejecuta las imágenes ya publicadas por Actions. Para cada componente se construye y publica una imagen final después de sus tests; QA y PROD reciben la misma referencia del registry, sin reconstruir en el proveedor. Las etapas de tests siguen siendo imágenes de trabajo separadas, no las que se despliegan.
+
+Convertí los cuatro servicios existentes de Render a `Existing Image`: API y frontend de QA, API y frontend de PROD. Conservé sus URLs, configuración, bases y hooks; no quedaron servicios duplicados. Para iniciar la conversión configuré las dos imágenes con `sha-7c43135fbcc7b67bb420117975ae70be346916d4`, el commit del cierre del TP6. Los despliegues posteriores los dispara el pipeline con otra etiqueta explícita.
+
+La primera promoción con este mecanismo fue el commit `55b0a8a6c5173d8e8f876d18d833385cfec9187d`, [corrida #34](https://github.com/Santiago-Buffaz/ingsoft3-tp01/actions/runs/40239421181). Se verificaron ambas descargas públicas con una configuración vacía de Docker, sin credenciales de GHCR. Las capturas de los cuatro servicios mostraron los despliegues por hook con esa etiqueta.
+
+### Etiquetas, credenciales y configuración por entorno
+
+El pipeline etiqueta cada imagen `sha-<commit completo de 40 caracteres>`. Usa el SHA de la corrida, no una rama móvil ni el SHA corto. No publica `latest`: ese nombre cambia con el tiempo y dificultaría saber qué se verificó y qué recuperar. Un tag por SHA proporciona trazabilidad, pero técnicamente alguien con permiso podría reasignarlo; el digest identifica el contenido. La igualdad de referencias presupone que no se sobrescriben esas etiquetas.
+
+Los hooks ahora reciben `imgURL`, construido con `ghcr.io/santiago-buffaz/ingsoft3-tp01-backend:sha-$GITHUB_SHA` o la variante `frontend`. `curl --get --data-urlencode` codifica el parámetro. Los dos jobs de deploy calculan las mismas referencias; cambian los hooks y las variables de entorno. Ya no se pide reconstruir con `ref`. `curl -f` convierte una respuesta HTTP de error en un fallo del paso.
+
+La publicación sigue limitada al push a `main`. Cada job de build tiene `packages: write`, inicia sesión con el `GITHUB_TOKEN` de la corrida y publica sólo después de sus propias pruebas. QA depende de que ambos builds terminen bien. No se incorporó un PAT ni se incluyeron secretos en las imágenes. Las claves de los hooks están en los environments de GitHub; las conexiones a `app_qa` y `app_prod`, en los servicios backend correspondientes de Render.
+
+La misma imagen del frontend sirve en ambos entornos. React compilado usa `/api`; nginx genera su configuración al arrancar desde `default.conf.template`, sustituyendo `BACKEND_URL` y `DNS_RESOLVER`. En Render cada frontend apunta a su API HTTPS y utiliza el resolver configurado. `proxy_ssl_server_name on` y `Host $proxy_host` permiten dirigirse al servicio correcto. Dentro de la imagen quedan la SPA, nginx y la plantilla; las direcciones concretas y los secretos de base quedan fuera. No recompilo React para cambiar de QA a PROD.
+
+La imagen de `Settings → Image` es la configuración inicial del servicio, no necesariamente la que está activa: el hook puede desplegar otra etiqueta sin reemplazar ese ajuste. Para la comprobación uso el último despliegue activo y sus Events. Un `Manual Deploy` desde esa configuración podría volver a la imagen inicial; el procedimiento habitual del TP usa los hooks de Actions.
+
+### Qué verifican las dos suites
+
+Las dos suites están en `frontend/e2e/`, usan Playwright 1.62.1 y se ejecutan en jobs separados contra las URLs públicas de QA. `API_BASE_URL` apunta directamente al backend de QA; `E2E_BASE_URL`, al frontend de QA. Aunque hay valores locales de respaldo para trabajar en desarrollo, CI fija explícitamente las URLs desplegadas.
+
+| Suite | Flujo | Resultado comprobado |
+|---|---|---|
+| Integración | Alta, lectura y baja | POST 201, consulta del dato persistido por ID y email, DELETE 204, GET 404 y ausencia en el listado. |
+| Integración | Nombre vacío | HTTP 400 con «El nombre es obligatorio.» y ausencia del registro antes y después. |
+| Integración | Búsqueda por email | Encuentra exactamente el cliente creado aunque el email se consulte en mayúsculas; una búsqueda sin coincidencia devuelve vacío. |
+| E2E | Alta y eliminación desde la pantalla | Completa el formulario, comprueba la fila propia, abre el detalle, confirma la eliminación y verifica que desaparezca. |
+| E2E | Nombre compuesto por espacios | Envía el formulario, observa el error real en pantalla y comprueba que no se creó el cliente. HTML `required` admite espacios; la validación de la API debe rechazarlos. |
+| E2E | Búsqueda y persistencia al recargar | Crea un cliente, recarga, lo busca con un email que no coincide y luego con su email en mayúsculas; finalmente lo elimina. |
+
+La tercera prueba de cada suite cubre una necesidad cotidiana: encontrar la ficha de un cliente. Si la búsqueda falla, quien atiende el estudio no puede localizarla aunque el alta haya funcionado. La integración comprueba el filtro de la API y su consulta a PostgreSQL; el navegador comprueba también el formulario de búsqueda, su envío y el resultado visible después de recargar.
+
+La integración usa únicamente `request`: recorre HTTP, ASP.NET, EF Core/Npgsql y PostgreSQL real de QA, sin navegador ni dobles. Es integración amplia porque prueba el servicio desplegado con su base. Reutiliza el entorno y detecta problemas de configuración y persistencia, a cambio de depender de la red, la disponibilidad y un estado compartido. Una integración estrecha podría arrancar la aplicación y un Postgres temporal controlado por cada test; sería más aislada, pero no comprobaría el despliegue real.
+
+Las E2E usan Chromium y los controles reales por rol, nombre y label. No hay interceptación de respuestas, HAR, mocks de API ni pruebas salteadas por indisponibilidad. No dupliqué en el navegador todas las combinaciones de reglas de casos, turnos o fechas: esas combinaciones pertenecen a la base unitaria de la pirámide. Tampoco cubro todavía todos los CRUD relacionados, rendimiento ni seguridad. En integración prioricé los límites de persistencia y validación de Clientes. Un verde sólo cubre los comportamientos que estas pruebas afirman.
+
+### Datos, esperas y diagnóstico de fallos
+
+Cada intento de cada prueba genera nombre y email con timestamp y parte de un UUID. Sólo borra los registros que coinciden con su email exacto. El flujo normal comprueba la eliminación; además, una fixture hace limpieza de respaldo en `finally`, incluso si un alta se guardó antes de fallar una aserción. La limpieza también tiene aserciones: no oculta una API caída. Los clientes de referencia de TP6 se conservan.
+
+Se usa un worker, ejecución secuencial y un reintento por prueba. Los límites son 120 segundos por prueba, 15 para aserciones, 20 para acciones del navegador y 90 para navegación. Las peticiones de alta/listado tienen un máximo de 60 segundos. Los jobs de integración y E2E tienen 15 y 20 minutos respectivamente. Son esperas acotadas para el cold start; no garantizan superar una cuota agotada. Las suites no agregan sleeps arbitrarios: esperan elementos o resultados mediante Playwright.
+
+Cada suite publica su HTML como artefacto propio, también cuando falla: `playwright-report-integracion` y `playwright-report-e2e`, con retención de 30 días. Los fallos conservan screenshot y traza. El resumen muestra aprobadas, fallidas, omitidas e inestables y falla si hay menos de tres aprobadas, alguna fallida, alguna omitida o un error global. Un test que falla y pasa al reintentar se informa como `flaky`; esta configuración permite ese verde, por lo que hay que revisar el reporte y diagnosticar la causa. Las corridas de recuperación documentadas tuvieron cero flaky.
+
+### Orden del pipeline y aprobación
+
+La cadena de `main` es `build-backend + build-frontend → deploy-qa → integracion → e2e → deploy-prod`. Integración necesita QA; E2E necesita integración; PROD necesita E2E. Si la API falla, no se gasta un navegador en comprobar un servicio ya roto. En los PR sólo corren los builds y unitarios: las cuatro etapas posteriores quedan salteadas porque QA requiere un push a `main`.
+
+Los pasos de publicación de reportes usan `!cancelled()` para conservar evidencia tras un fallo. Esa condición no está en el job de producción ni hay `continue-on-error` que permita promover con pruebas fallidas. Después de los controles automáticos, el environment `production` conserva a `Santiago-Buffaz` como required reviewer, con autorrevisión permitida para el trabajo individual. Es entrega continua con aprobación humana.
+
+QA es compartido. Se agregó concurrencia al workflow con grupo por PR o referencia y `cancel-in-progress: false`: las corridas de `main` se serializan incluyendo la espera de aprobación. Aun así, trabajo con un merge por vez. Esto no impide cambios manuales en Render ni garantiza conservar todas las corridas pendientes si se acumulan varias. Si un despliegue ajeno reemplaza QA, las pruebas podrían comprobar otra versión; contrasto los Events y las horas de ejecución, y rechazo una promoción desactualizada en lugar de volver a ejecutar sus pruebas contra el nuevo QA.
+
+### Ensayo: integración verde y E2E rojo
+
+El PR #27 cambió una sola línea de la aplicación: el botón pasó de `+ Nuevo cliente` a `+ Alta de cliente`. No cambió `e2e/`, el backend ni el workflow. Se alteró el nombre esperado del control; el botón podía seguir abriendo el formulario, pero ya no cumplía el contrato de interfaz que verificaban los recorridos. Los unitarios del TP5 no prueban ese TSX, por lo que siguieron verdes: su 100% de cobertura se refiere a sus archivos incluidos, no a toda la aplicación.
+
+En la corrida #38, commit `b1bd4651506fd82d857959f67134cb8e2fdefbb8`, ambos builds y el smoke de QA pasaron. Integración aprobó sus tres pruebas en 4,6 segundos. Los tres E2E fallaron, también después de su único reintento; PROD quedó `skipped` sin pasos ejecutados ni solicitud de aprobación.
+
+El diagnóstico se hizo con el reporte descargado: en `abrirAlta`, línea 9 de `clientes.spec.js`, apareció `TimeoutError: locator.click: Timeout 20000ms exceeded` esperando el botón con nombre exacto `+ Nuevo cliente`. La captura y el snapshot mostraron `+ Alta de cliente`. Se conservaron seis trazas, una por intento, y la captura del fallo. La integración verde confirmó que los recorridos de API y persistencia seguían funcionando; el fallo estaba en la interfaz que el usuario y el navegador encontraban. El smoke sólo había comprobado respuestas HTTP, no ese recorrido.
+
+El PR #28 restauró el texto original sin adaptar los tests para aceptar la regresión. La corrida #40, commit `300a3070ba83f7b6dbd333c3235da25c9bec2caf`, aprobó integración (3, en 1,4 segundos) y E2E (3, en 15,4 segundos), con cero fallidas, omitidas o flaky. Después de la revisión de `production` por `Santiago-Buffaz`, `deploy-prod` terminó bien. Los logs de QA y PROD nombran las mismas dos imágenes con ese SHA. Esos tiempos son los de las suites, no incluyen instalación, despliegues ni la espera humana.
+
+### Identidad del despliegue y release
+
+El hook aceptado indica qué imagen se solicitó. El HTTP 200 del smoke indica disponibilidad de `/health`, consulta a `/api/clientes` y frontend; no identifica el commit que respondió. Puede responder la versión anterior mientras termina el despliegue. Por eso, antes de aprobar y antes de etiquetar, la comprobación operativa exige ambos servicios Live con la etiqueta de la corrida en Render y origen Deploy Hook. Los Events privados se muestran en vivo en la defensa.
+
+El siguiente control automático, estudiado como concepto, sería hornear el commit dentro de cada imagen mediante `ARG` y `build-args`, exponerlo por un endpoint y compararlo desde el smoke contra el SHA de la corrida. No bastaría con cargar una variable externa que pudiera declarar una versión distinta a la de los binarios. Esta identificación desde afuera no está implementada en este TP; no presento el smoke actual como una prueba de identidad.
+
+La release académica usa el tag Git `v7.0.0` sobre el commit efectivamente desplegado en PROD, comprobado después de la corrida del cierre documental. Se obtiene ese commit con `git rev-list -n1 v7.0.0`; se antepone `sha-` y se usa en los dos paquetes. La publicación de la release lleva `--verify-tag`, para exigir que el tag ya exista. Así se conecta nombre de versión → commit → dos imágenes. La documentación del cierre puede producir un SHA posterior al de la recuperación #40: no se etiqueta por costumbre el último commit sin verificar su despliegue.
+
+### Problemas encontrados y uso de IA
+
+Después del PR #25 repetí el bloque que creaba `tp7/imagenes`. Git informó que la rama ya existía y detuvo la cadena de comandos. El PR ya estaba mergeado; no hacía falta otro. La corrida esperaba la aprobación de producción, que completé después de revisar QA.
+
+En la validación local de las suites faltaba la revisión de Chromium correspondiente a Playwright. Se instaló la versión requerida y la prueba local del navegador pasó. Ese fallo de preparación no se usó como evidencia de bloqueo: la evidencia oficial es el cambio real de la aplicación desplegada en QA y la corrida #38. También se distinguió la imagen inicial de Settings de la etiqueta activa del último despliegue, para no confundir la fuente configurada con la versión ejecutada.
+
+Usé ChatGPT/Codex para interpretar la consigna, preparar el cambio de hooks, las suites, el helper por etapas y esta documentación. Codex realizó verificaciones en copias aisladas y consultas de lectura a Actions, descargó reportes y examinó la captura del fallo. Yo ejecuté en el repositorio las ramas, commits, pushes, PRs y merges, configuré Render y aprobé las promociones. El código no fue escrito íntegramente a mano por mí; la evidencia son las ejecuciones y sus artefactos, no la afirmación de la IA. El cierre se completa con el tag y la release verificados sobre PROD.
+<!-- TP7:DECISIONES:FIN -->
