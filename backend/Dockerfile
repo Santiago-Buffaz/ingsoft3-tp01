@@ -14,7 +14,7 @@ RUN dotnet publish LexAgenda.Api/LexAgenda.Api.csproj -c Release --no-restore -o
 # Etapa 2: tests. Hereda /src, el SDK, la solución y las dependencias.
 FROM build AS test
 ENTRYPOINT ["dotnet", "test", "LexAgenda.sln", \
-            "/p:CollectCoverage=true", "/p:Threshold=8.5", "/p:ThresholdType=line", \
+            "/p:CollectCoverage=true", "/p:Threshold=12", "/p:ThresholdType=line", \
             "/p:CoverletOutput=/out/coverage", "/p:CoverletOutputFormat=cobertura", \
             "/p:Exclude=[LexAgenda.Api]Program*%2c[LexAgenda.Api]LexAgenda.Api.Data.*%2c[LexAgenda.Api]LexAgenda.Api.Models.*%2c[LexAgenda.Api]LexAgenda.Api.DTOs.*", \
             "--logger", "trx;LogFileName=tests.trx", "--results-directory", "/out"]
