@@ -1,3 +1,19 @@
+<!-- TP6:ENLACES:INICIO -->
+## Enlaces de este TP — TP6
+
+- [Paquete público del backend](https://github.com/users/Santiago-Buffaz/packages/container/package/ingsoft3-tp01-backend).
+- [Paquete público del frontend](https://github.com/users/Santiago-Buffaz/packages/container/package/ingsoft3-tp01-frontend).
+- [Job de un PR verde: Entrar al registry salteado](https://github.com/Santiago-Buffaz/ingsoft3-tp01/actions/runs/40202254345/job/121195706516).
+- [Job de main: construir y publicar como último paso propio](https://github.com/Santiago-Buffaz/ingsoft3-tp01/actions/runs/40202749007/job/121197178919).
+- QA: [frontend](https://lexagenda-front-qa-sbuffaz.onrender.com) · [API](https://lexagenda-api-qa-sbuffaz.onrender.com) · [salud](https://lexagenda-api-qa-sbuffaz.onrender.com/health).
+- PROD: [frontend](https://lexagenda-front-prod-sbuffaz.onrender.com) · [API](https://lexagenda-api-prod-sbuffaz.onrender.com) · [salud](https://lexagenda-api-prod-sbuffaz.onrender.com/health).
+- [Primer QA automático](https://github.com/Santiago-Buffaz/ingsoft3-tp01/actions/runs/40212824842).
+- [Corrida rechazada](https://github.com/Santiago-Buffaz/ingsoft3-tp01/actions/runs/40212824842) · [promoción aprobada A](https://github.com/Santiago-Buffaz/ingsoft3-tp01/actions/runs/40214755224) · [versión B del ensayo](https://github.com/Santiago-Buffaz/ingsoft3-tp01/actions/runs/40228356830).
+- [Rollback del backend en Render](https://dashboard.render.com/web/srv-dbf1v50473hc73bin2m0/deploys/dep-dbf67t8473hc73c0bp40) · [rollback del frontend en Render](https://dashboard.render.com/web/srv-dbf2f1gae00c73ehta1g/deploys/dep-dbf6pscs728c73eafadg). El detalle de Render se muestra desde mi cuenta en la defensa.
+
+Las imágenes se identifican con sha- seguido del commit completo. Las páginas de los paquetes permiten elegir la versión correspondiente a cada merge. El tag académico de cierre es v6.0.0; su commit se comprueba contra el último despliegue aprobado, no suponiendo que es la punta actual de main.
+<!-- TP6:ENLACES:FIN -->
+
 # Decisiones de arquitectura y proceso
 
 ## TP1 — Git y colaboración
@@ -310,3 +326,123 @@ Los tests de fechas fijan UTC y un instante conocido. El formato de hora puede i
 Usé ChatGPT/Codex para preparar los tests, la configuración y este borrador. Apliqué los archivos preparados con un asistente local por etapas; no escribí manualmente todo ese código. Los cambios también se probaron en una copia aislada.
 
 Para verificar mi entrega, ejecuté los comandos y abrí los reportes. En GitHub comprobé el primer PR rojo, su corrección y merge, y el segundo PR que quedó abierto. Los porcentajes y enlaces de este documento salen de esas corridas. El caso de vencimiento nulo quedó identificado como pendiente.
+
+<!-- TP6:DECISIONES:INICIO -->
+## TP6 — Entrega continua y entornos
+
+### Qué agregué
+
+Continué en el mismo repositorio de LexAgenda. Los tests y la cobertura del TP5 siguen siendo la primera condición. Después del merge, el pipeline publica backend y frontend en GHCR y actualiza QA. Para continuar a PROD hace falta revisar y aprobar el environment production.
+
+La aplicación mantiene React con nginx en el frontend, .NET 8 en el backend y PostgreSQL en Neon. Cada entorno tiene frontend, API y base propia: app_qa o app_prod. Los cuatro servicios Docker están en Render. Los creé desde el repositorio y dejé Auto-Deploy en Off, para que el proveedor no se adelante a las verificaciones de GitHub.
+
+### Qué hace confiable la publicación
+
+La garantía combina tres condiciones: la protección de main exige CI y cobertura; sólo el evento push a main publica; y construir/publicar la imagen final es el último paso propio del mismo job que ejecutó sus tests. Si una verificación anterior falla, el paso final no corre. Los pasos Post de GitHub son limpieza automática.
+
+El login utiliza GITHUB_TOKEN, sin PAT personal. Di contents: read y packages: write sólo a los dos jobs que publican. Los jobs de deploy no necesitan permiso de escritura sobre paquetes. Las imágenes de tests usan target: test y load: true para ejecutarse en el runner; no se publican como imágenes de la aplicación.
+
+El enlace del PR muestra tests verdes y login salteado por la condición de evento/rama. El enlace de main muestra el orden final de publicación. Un PR rojo con el login salteado no demostraría esa condición: podría haberse omitido simplemente porque falló antes.
+
+Cada job publica su componente después de sus propias pruebas; el inicio de QA depende de que los DOS jobs terminen bien. El registry conserva versiones identificables por commit. Publicar aunque falle la verificación haría que estar en el registry dejara de significar que ese componente superó los controles.
+
+Esto garantiza el comportamiento del pipeline, no impide que alguien con permiso haga un docker push manual. Además, un tag es un nombre que técnicamente se puede reasignar; un digest identifica el contenido de la imagen. En este TP uso los tags sha- del commit como trazabilidad.
+
+### Cadena y alcance de los datos
+
+Los jobs build-backend y build-frontend conservan sus nombres para no romper los checks de la protección de main. deploy-qa declara needs para ambos. deploy-prod necesita deploy-qa. Los dos deploys tienen condición de push a main: los PR verifican, pero no despliegan.
+
+El environment qa contiene RENDER_HOOK_API_QA y RENDER_HOOK_FRONT_QA. production contiene RENDER_HOOK_API_PROD y RENDER_HOOK_FRONT_PROD. Son URLs con una clave que permite disparar despliegues, por eso son secretos. URL_API y URL_FRONT son variables públicas con el mismo nombre en ambos environments y distinto valor.
+
+La contraseña de Neon está en ConnectionStrings__Default del backend de Render correspondiente, no en la imagen, el workflow ni este documento. Los dos guiones bajos corresponden a la sección ConnectionStrings y la clave Default de .NET.
+
+La dirección de la API del frontend quedó en BACKEND_URL y el DNS en DNS_RESOLVER. nginx genera su configuración al arrancar a partir de default.conf.template. Dentro de la imagen quedaron los archivos compilados de React, nginx y la plantilla. Los valores por defecto backend:8080 y 127.0.0.11 permiten usar Compose; Render los reemplaza con la API pública y el resolver configurado.
+
+Probé una misma imagen local con dos configuraciones de arranque y comparé los IDs de imagen. Cambiar el entorno no necesita recompilar React. Host usa el servidor de destino y SNI permite la conexión HTTPS hacia la API de Render.
+
+### Delivery y criterio de aprobación
+
+Implementé Continuous Delivery: el cambio queda verificado y QA se actualiza solo, pero llegar a PROD requiere una decisión humana. Continuous Deployment quitaría esa última aprobación. Hoy prefiero conservarla porque las verificaciones automáticas todavía no comprueban toda la experiencia ni tengo observabilidad de producción completa.
+
+production tiene a mi usuario como required reviewer y Prevent self-review desactivado para poder practicar solo. Un environment no aloja la app: reúne secretos y variables con alcance, reglas de protección e historial de despliegues. El servicio corre en Render.
+
+Antes de aprobar reviso CI y smoke QA, el SHA Live de los dos servicios QA, el cambio visible en la pantalla, la carga de Clientes, los destinos de PROD y que no haya una promoción vieja pendiente. El comentario del rechazo que dejé fue:
+
+> No lo paso a producción todavía porque abajo de LexAgenda sigue apareciendo “TP6 · Revisión QA pendiente”. Quedó ese texto de prueba, así que primero lo voy a cambiar por el definitivo y revisar que se vea bien antes de aprobar el despliegue.
+
+El rechazo detuvo ese run antes de ejecutar los hooks de PROD. La corrección se promovió en una corrida nueva. No cambié los tests ni bajé la cobertura para fabricar ese caso.
+
+Esta revisión sigue sin demostrar rendimiento bajo carga, todos los recorridos de usuario ni ausencia de fallas intermitentes. Necesitaría mejores E2E y métricas de error/latencia para tomar una decisión más completa; esos temas continúan en los siguientes TPs.
+
+### Commit, reconstrucción y límite del smoke
+
+Los hooks reciben ref con GITHUB_SHA de la corrida. Si usara solamente la rama, otro merge podría hacer que Render construya un commit distinto del que acaba de pasar los controles. La concurrencia de PROD evita dos jobs simultáneos, pero no vuelve seguro aprobar una corrida antigua fuera de orden. Para este ejercicio trabajé una promoción por vez.
+
+Render reconstruye desde el repositorio. Por eso en TP6 promuevo el mismo commit, pero no ejecuto la imagen publicada por Actions. Una reconstrucción puede cambiar por dependencias externas o bases de imagen que se actualicen: no puedo afirmar igualdad de bytes entre esos builds. El TP7 conecta la promoción con la imagen del registry.
+
+El hook aceptado sólo confirma que se pidió el deploy. El smoke consulta /health, /api/clientes y el frontend. La consulta a Clientes añade una comprobación de acceso a la base; /health solo informa disponibilidad del proceso. Hay 30 intentos, pausas de 20 segundos y timeout por petición; al agotarse, el job devuelve error.
+
+Un smoke verde no informa qué versión respondió, ni prueba que todos los flujos funcionen. La versión anterior podría seguir sirviendo mientras Render construye la nueva. Por eso antes de aprobar o cerrar la entrega comparé el SHA solicitado con los dos servicios Live y revisé el texto visible. No presento el HTTP 200 como prueba de identidad de versión.
+
+### Aislamiento y plan gratuito
+
+Creé la marca SOY PROD - LexAgenda TP6 mediante SQL sólo en app_prod y comprobé que no aparece en QA. También guardé un cliente ficticio de QA que no aparece en PROD. Las bases son distintas aunque compartan proyecto/rama de Neon. Los hooks de PROD se contrastan con el id del servicio de PROD en Render.
+
+Los servicios gratuitos pueden dormir por inactividad y necesitan tiempo de arranque. Las horas del workspace se comparten entre los servicios: cuatro servicios no significan cuatro cuotas completas independientes. Los reintentos y timeouts manejan una espera limitada; no prometen resolver una cuota agotada. No agregué un ping continuo para mantenerlos despiertos.
+
+Datos que revisé en mis cuentas: El 25/10/2026 revisé los paneles de mis cuentas. En Render, Billing > Monthly Included Usage mostraba 10,27 de 750 horas gratuitas, 5 de 500 minutos de construcción, 1 MB de los 5 GB incluidos de transferencia, 4 de 25 servicios y 0 de 2 dominios personalizados. Esos valores corresponden al workspace completo. En Neon, Billing confirmaba Free Plan, USD 0 por mes, con 1 GB de almacenamiento, 100 horas de cómputo, autoescalado hasta 2 CU y 10 ramas por proyecto. En Organization > Projects, con un único proyecto lexagenda-tp6, el consumo mostrado era 0,19 CU-h, 0,04 GB de almacenamiento, 0,01 GB de historial y 0 GB de transferencia, desde el 25/10/2026. El panel advierte que las métricas pueden demorar una hora y no se actualizan para proyectos inactivos. Registré los valores de mi cuenta que aparecen en las capturas, no los números de ejemplo de la documentación.
+
+Elegí Neon para la base, en vez del Postgres gratuito temporal de Render. Los builds y las pruebas de recuperación también consumen recursos. Antes de la defensa revisaré que las URLs y las cuotas sigan disponibles y abriré los servicios con tiempo para el cold start.
+
+### Patrón que elegiría en una producción real
+
+Para un estudio que necesita consultar su agenda durante el horario de atención elegiría blue-green si puede asumir el costo: dos versiones preparadas de la infraestructura de producción y un cambio de tráfico después de comprobar la nueva. Permite recuperar el tráfico hacia la versión anterior con rapidez mientras esa versión siga sana.
+
+El costo de cómputo puede acercarse al doble durante la convivencia. El beneficio sería reducir el tiempo de recuperación de la aplicación; no elimina errores compartidos ni problemas de datos. Hace falta que ambos esquemas y contratos sean compatibles. Hoy me faltan balanceo/control de tráfico, capacidad duplicada, métricas de errores y latencia, alertas y una verificación de negocio más completa.
+
+QA y PROD NO son las dos mitades de blue-green: QA tiene datos de prueba. Blue-green necesita dos slots de PRODUCCIÓN y un mecanismo para dirigir el tráfico. El TP actual usa redespliegues del proveedor; no implementé blue-green, canary ni flags.
+
+Canary permitiría exponer el cambio a pocos usuarios, pero sin métricas para comparar los errores no sabría cuándo frenarlo. Rolling reemplaza instancias por tandas y obliga a tolerar versiones simultáneas. Un feature flag controla una funcionalidad dentro de la app y puede combinarse con esos patrones; no es lo mismo que repartir tráfico entre dos versiones.
+
+### Plan actual de rollback y medición
+
+Hice un ensayo controlado, no un incidente con usuarios. A era la versión conocida con “Agenda del estudio”; B mostraba “TP6 · Ensayo de recuperación”. Ambas habían pasado CI, QA y aprobación de PROD.
+
+- SHA de A, destino de recuperación: d2fb7afd0c754746c580894b791bec8304cebae3.
+- SHA de B, versión desde la que volví: 95c192a799c7b7126d284606b9c9af1c9685c1a5.
+
+El procedimiento fue: detener nuevas promociones; identificar A por su despliegue aprobado; recuperar desde Render los hooks de los DOS servicios de PROD; iniciar el cronómetro; llamar a ambos hooks con ref=A; esperar Live con ese SHA en ambos; recargar el frontend y comprobar Clientes. No usé main como destino ni v5.0.0, que todavía no tiene la plantilla nginx de TP6.
+
+El primer intento del frontend figuró Live, pero la web seguía mostrando el texto de B. Después de revisar el timeout de detección de puerto y la configuración indicada, volví a desplegar A manualmente desde el dashboard. La fila del frontend y su enlace corresponden a ese reintento, que sí recuperó la interfaz. Conservé también el [detalle del primer intento del frontend](https://dashboard.render.com/web/srv-dbf2f1gae00c73ehta1g/deploys/dep-dbf67tl9fdbs738vj39g). La explicación del problema y el alcance de la comprobación están en Problemas y uso de IA.
+
+| Servicio PROD | Inicio del despliegue | Live del mismo deploy | Intervalo entre las marcas visibles |
+|---|---|---|---|
+| Backend | 2026-10-25T17:17:57-03:00 | 2026-10-25T17:34:16-03:00 | 979 segundos |
+| Frontend | 2026-10-25T17:56:17-03:00 | 2026-10-25T17:56:43-03:00 | 26 segundos |
+
+El tiempo total observado desde antes de llamar a los hooks hasta confirmar los servicios Live y el funcionamiento de la interfaz fue 2654 segundos. Incluye la espera, el diagnóstico, los reintentos y mi confirmación manual. No es la suma de las dos duraciones de la tabla ni representa solamente tiempo de construcción.
+
+Sobre las marcas horarias: Tomé el inicio del campo Deployed del detalle de cada despliegue y la hora final de la línea «Your service is live» de sus logs, con el visor configurado en GMT-3 (-03:00), el 25/10/2026. El backend corresponde al pedido original por Deploy Hook y el frontend al reintento manual que dejó la interfaz correcta. Las marcas visibles dan intervalos de 979 segundos para backend y 26 para frontend. El campo Duration de Render muestra, respectivamente, 16m18s y 25.7s; conservo ambos datos sin hacerlos coincidir artificialmente. El total del asistente incluye la espera, el diagnóstico, el reintento del frontend y mi confirmación manual posterior; no es solamente el tiempo del último build.
+
+Los enlaces del detalle de cada deploy están arriba. Deploys conserva el SHA y el estado Live. Una respuesta /health de B no habría sido suficiente para detener el cronómetro. Este ensayo practica el tiempo de recuperación de un despliegue fallido, relacionado con la métrica DORA de recuperación; una única prueba no permite afirmar una media de incidentes.
+
+El rollback vuelve el código, no la base de datos ni las variables del servicio. Una migración que borrara una columna o un dato no se deshace por volver al commit anterior. Para cambios de datos necesitaría compatibilidad de esquema, respaldos/restauración y un procedimiento específico probado.
+
+El ensayo comenzó por hooks, con el procedimiento de emergencia que propone la guía. Sus pedidos y el reintento manual del frontend quedan registrados en Render; no son una nueva promoción aprobada desde Actions. Para la entrega, el cierre documental vuelve a pasar por el pipeline, QA y la aprobación de PROD, y después se crea v6.0.0 sobre ese commit desplegado.
+
+### Problemas y uso de IA
+
+Al desplegar el frontend de QA, LexAgenda abría, pero en Clientes aparecía el mensaje «No se pudo completar la operación». Con ayuda de Codex comprobé el backend y el frontend por separado: el backend respondía correctamente en `/health` y devolvía `[]` en `/api/clientes`, mientras que esas consultas desde el frontend devolvían 404. Esto permitió ubicar el problema en la conexión del frontend con la API.
+
+Revisé las variables del frontend en Render: `BACKEND_URL` debía quedar como `https://lexagenda-api-qa-sbuffaz.onrender.com`, sin barra final ni rutas agregadas, y `DNS_RESOLVER` como `8.8.8.8`. Después de aplicar la configuración y volver a desplegar, la consulta `/api/clientes` desde el frontend devolvió HTTP 200 con `[]` y Clientes cargó sin el mensaje rojo. También corregí la dirección de una prueba: había abierto `/clientes/api/clientes`, cuando correspondía `/api/clientes` desde la raíz del dominio.
+
+Al iniciar el rollback desde mi Mac, el asistente se frenó con el mensaje «No se pudo confirmar el hook de backend». Con ayuda de Codex se reprodujo un problema de certificados HTTPS en Python: una consulta de lectura a Render fallaba con CERTIFICATE_VERIFY_FAILED. La misma conexión con curl del sistema sí respondía. Se ajustó el asistente para usar curl manteniendo la verificación HTTPS, mostrar errores concretos y aceptar las respuestas de despliegue sin depender de que siempre incluyan JSON. La corrección se probó con respuestas simuladas, sin disparar despliegues durante esas pruebas. Este intento interrumpido no se tomó como evidencia de un rollback terminado.
+
+Durante el ensayo de rollback ingresé los SHA y respondí SI en la terminal antes de comprobar que los dos servicios estuvieran Live con A. El asistente registró 295 segundos, pero Render todavía mostraba B activa y los nuevos despliegues en progreso. Descarté esa medición como prueba de finalización. Se agregó una confirmación separada que conserva el inicio original y permite completar la verificación sin volver a llamar a los hooks; los tiempos de construcción se toman de los detalles de Render.
+
+Render terminó mostrando los dos servicios Live con el commit A, pero al abrir producción todavía aparecía «TP6 · Ensayo de recuperación», el texto de B. Una consulta externa también recibió ese frontend, por lo que no di el rollback por verificado. En los logs del frontend se veía que había descargado el commit A y terminado la construcción, pero después aparecía «Port scan timeout reached, no open ports detected». Ese intento figuraba exitoso con una duración de 16 minutos y 27 segundos. Con ayuda de Codex revisé el puerto: el código de nginx escucha en el 80 y se indicó configurar PORT=80 y desplegar nuevamente el commit A. Después del nuevo despliegue manual, Render mostró A Live en 25,7 segundos y la web volvió a mostrar «Agenda del estudio». Clientes siguió cargando el dato de PROD. La comprobación externa confirmó el subtítulo y las respuestas HTTP 200 de la API y del proxy del frontend. Conservé el intento anterior y el reintento para distinguir el tiempo del último despliegue del tiempo total de recuperación.
+
+Para dar por terminada la recuperación comprobé el commit A en Render, el subtítulo «Agenda del estudio» y la carga del cliente de PROD. No tomé el HTTP 200 ni el estado Live por sí solos como prueba suficiente.
+
+Usé ChatGPT/Codex para preparar una guía adaptada a LexAgenda, el workflow, la plantilla de nginx y una base de esta explicación. Apliqué los archivos preparados por etapas con un asistente local; no escribí manualmente todo el código. La verificación la hice ejecutando los pasos y leyendo sus resultados: CI, publicación pública, QA/PROD, revisión y rechazo, separación de datos y rollback con horas de Render. Revisé el texto para que describa lo que realmente hice y no tomé como evidencia una respuesta de la IA.
+<!-- TP6:DECISIONES:FIN -->
