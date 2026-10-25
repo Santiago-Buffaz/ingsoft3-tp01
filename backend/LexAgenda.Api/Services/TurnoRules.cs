@@ -18,6 +18,12 @@ public static class TurnoRules
             throw new BusinessException("La duración debe ser de 30, 60 o 90 minutos.");
     }
 
+    public static void ValidarInicio(DateTime inicio, IAppClock clock)
+    {
+        if (inicio <= clock.UtcNow)
+            throw new BusinessException("No se pueden crear o mover turnos al pasado.");
+    }
+
     public static bool PuedeTransicionar(EstadoTurno actual, EstadoTurno siguiente) =>
         (actual, siguiente) is
             (EstadoTurno.PENDIENTE, EstadoTurno.CONFIRMADO) or

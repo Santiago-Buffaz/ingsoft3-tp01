@@ -4,3 +4,8 @@
 .git/
 .idea/
 .vscode/
+
+# TP5: resultados generados.
+coveragereport/
+**/coverage.json
+**/coverage.cobertura.xml

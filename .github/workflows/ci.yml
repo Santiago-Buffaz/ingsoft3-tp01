@@ -6,6 +6,9 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   build-backend:
     runs-on: ubuntu-latest
@@ -30,6 +33,42 @@ jobs:
           cache-from: type=gha,scope=backend
           cache-to: type=gha,mode=max,scope=backend
 
+      - name: Construir la etapa de tests del backend
+        uses: docker/build-push-action@v7
+        with:
+          context: ./backend
+          target: test
+          load: true
+          push: false
+          tags: backend-test:ci
+          cache-from: type=gha,scope=backend-test
+          cache-to: type=gha,mode=max,scope=backend-test
+
+      - name: Correr tests y exigir cobertura del backend
+        run: |
+          mkdir -p TestResults
+          docker run --rm -v "$GITHUB_WORKSPACE/TestResults:/out" backend-test:ci
+
+      - name: Reporte y resumen del backend
+        if: ${{ !cancelled() }}
+        run: |
+          test -s TestResults/coverage.cobertura.xml
+          dotnet tool install -g dotnet-reportgenerator-globaltool --version 5.4.18
+          reportgenerator -reports:TestResults/coverage.cobertura.xml -sourcedirs:backend \
+            -targetdir:coveragereport "-reporttypes:Html;MarkdownSummaryGithub"
+          cat coveragereport/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publicar cobertura y resultados del backend
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: coverage-backend
+          path: |
+            coveragereport
+            TestResults
+          if-no-files-found: error
+          retention-days: 30
+
   build-frontend:
     runs-on: ubuntu-latest
     steps:
@@ -52,3 +91,48 @@ jobs:
           tags: frontend:ci
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
+
+      - name: Construir la etapa de tests del frontend
+        uses: docker/build-push-action@v7
+        with:
+          context: ./frontend
+          target: test
+          load: true
+          push: false
+          tags: frontend-test:ci
+          cache-from: type=gha,scope=frontend-test
+          cache-to: type=gha,mode=max,scope=frontend-test
+
+      - name: Correr tests y exigir cobertura del frontend
+        run: |
+          mkdir -p frontend-coverage
+          docker run --rm -e COVERAGE_DIR=/salida/reporte \
+            -v "$GITHUB_WORKSPACE/frontend-coverage:/salida" frontend-test:ci
+
+      - name: Resumen del frontend
+        if: ${{ !cancelled() }}
+        run: |
+          test -s frontend-coverage/reporte/coverage-summary.json
+          node <<'NODE' >> "$GITHUB_STEP_SUMMARY"
+          const fs = require('node:fs');
+          const t = JSON.parse(fs.readFileSync('frontend-coverage/reporte/coverage-summary.json', 'utf8')).total;
+          if (!t.lines.total) {
+            console.error('Se midieron cero líneas: revisar coverage.include');
+            process.exit(1);
+          }
+          console.log('### Coverage del frontend');
+          console.log('| Métrica | Porcentaje |');
+          console.log('|---|---|');
+          for (const metrica of ['lines', 'branches', 'functions']) {
+            console.log(`| ${metrica} | ${t[metrica].pct}% |`);
+          }
+          NODE
+
+      - name: Publicar cobertura del frontend
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: coverage-frontend
+          path: frontend-coverage
+          if-no-files-found: error
+          retention-days: 30

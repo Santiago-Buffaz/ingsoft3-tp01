@@ -90,8 +90,7 @@ public class TurnoService(LexAgendaDbContext db, IAppClock clock)
     private async Task ValidarDatosAsync(TurnoRequest request, DateTime inicio, Guid? excluirId)
     {
         TurnoRules.ValidarDuracion(request.DuracionMinutos);
-        if (inicio <= clock.UtcNow)
-            throw new BusinessException("No se pueden crear o mover turnos al pasado.");
+        TurnoRules.ValidarInicio(inicio, clock);
         if (!await db.Clientes.AnyAsync(x => x.Id == request.ClienteId))
             throw new BusinessException("El cliente indicado no existe.");
         if (request.CasoId.HasValue)
