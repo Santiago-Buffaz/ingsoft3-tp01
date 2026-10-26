@@ -1,7 +1,10 @@
 import { NavLink, Route, Routes } from 'react-router-dom'
+import { withSentryReactRouterV7Routing } from '@sentry/react'
 import DashboardPage from './pages/DashboardPage'
 import ClientesPage from './pages/ClientesPage'
 import CasosPage from './pages/CasosPage'
+
+const SentryRoutes = withSentryReactRouterV7Routing(Routes)
 
 export default function App() {
   return (
@@ -21,11 +24,11 @@ export default function App() {
         </div>
       </aside>
       <main className="content">
-        <Routes>
+        <SentryRoutes>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/clientes" element={<ClientesPage />} />
           <Route path="/casos" element={<CasosPage />} />
-        </Routes>
+        </SentryRoutes>
       </main>
     </div>
   )

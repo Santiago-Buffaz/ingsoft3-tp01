@@ -11,7 +11,8 @@ export default defineConfig({
       reportOnFailure: true,
       reporter: ['text', 'html', 'lcov', 'json-summary'],
       include: ['src/**/*.ts'],
-      exclude: ['src/**/*.d.ts', 'src/types/**'],
+      // El arranque de Sentry depende del navegador y se comprueba allí.
+      exclude: ['src/**/*.d.ts', 'src/types/**', 'src/instrumentation.ts'],
       thresholds: { lines: 90, branches: 80 },
     },
   },
