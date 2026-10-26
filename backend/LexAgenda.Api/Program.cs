@@ -57,8 +57,6 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 var app = builder.Build();
 app.UseMiddleware<ApiExceptionMiddleware>();
 app.MapMethods("/health", new[] { "GET", "HEAD" }, () => Results.Ok(new { status = "ok" }));
-// TP9: endpoint temporal para comprobar la captura de errores; retirar al cerrar.
-app.MapGet("/api/falla", string () => throw new InvalidOperationException("Falla de prueba del TP9"));
 app.MapControllers();
 
 await using (var scope = app.Services.CreateAsyncScope())
