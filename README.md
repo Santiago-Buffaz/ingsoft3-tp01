@@ -2,9 +2,25 @@
 
 [![CI](https://github.com/Santiago-Buffaz/ingsoft3-tp01/actions/workflows/ci.yml/badge.svg)](https://github.com/Santiago-Buffaz/ingsoft3-tp01/actions/workflows/ci.yml)
 
-Aplicación full-stack pequeña para administrar clientes, casos y turnos de un estudio jurídico. Fue diseñada como app del semestre para Ingeniería del Software 3 (UCC, 2026): tiene reglas de negocio suficientes para testear, una arquitectura directa y un despliegue local reproducible con Docker Compose.
+LexAgenda permite administrar clientes, casos y turnos de un estudio jurídico. La desarrollé para Ingeniería del Software 3 (UCC, 2026) y fui incorporando las pruebas, los despliegues y el monitoreo a lo largo de los trabajos prácticos.
 
-## Arranque desde cero (entrega TP2)
+## Trabajos prácticos 5 a 9
+
+El detalle de lo que hice, las decisiones y los problemas de cada etapa está en [decisiones.md](decisiones.md). Cada release conserva el cierre del práctico correspondiente.
+
+| TP | Qué incorporé | Documentación | Release |
+|---|---|---|---|
+| 5 | Tests y cobertura mínima en CI. | [Calidad automatizada](decisiones.md#tp5---calidad-automatizada) | [v5.0.0](https://github.com/Santiago-Buffaz/ingsoft3-tp01/releases/tag/v5.0.0) |
+| 6 | Publicación de imágenes, QA, aprobación de producción y un ensayo de rollback. | [Entrega continua y entornos](decisiones.md#tp6--entrega-continua-y-entornos) | [v6.0.0](https://github.com/Santiago-Buffaz/ingsoft3-tp01/releases/tag/v6.0.0) |
+| 7 | Promoción de la misma imagen entre entornos, con pruebas de integración y E2E. | [Imágenes, integración y E2E](decisiones.md#tp7--imágenes-integración-y-e2e-como-condición-de-promoción) | [v7.0.0](https://github.com/Santiago-Buffaz/ingsoft3-tp01/releases/tag/v7.0.0) |
+| 8 | Creación y destrucción de preproducción con Terraform. | [Infraestructura como código](decisiones.md#tp8--preproducción-con-infraestructura-como-código) | [v8.0.0](https://github.com/Santiago-Buffaz/ingsoft3-tp01/releases/tag/v8.0.0) |
+| 9 | Dependabot, CodeQL, Sentry y una prueba de alertas de caída y recuperación con UptimeRobot. | [Seguridad y observabilidad](decisiones.md#tp9--seguridad-y-observabilidad) | [v9.0.0](https://github.com/Santiago-Buffaz/ingsoft3-tp01/releases/tag/v9.0.0) |
+
+Los enlaces a paquetes, corridas y reportes están al comienzo de [decisiones.md](decisiones.md#enlaces-del-tp7).
+
+La aplicación se puede abrir en [QA](https://lexagenda-front-qa-sbuffaz.onrender.com) o en [producción](https://lexagenda-front-prod-sbuffaz.onrender.com). Para ejecutarla en una máquina local, seguí los pasos de abajo.
+
+## Arranque local
 
 Requisito único: Docker Desktop o Docker Engine con Docker Compose.
 
@@ -126,7 +142,7 @@ frontend/
 │   ├── pages/
 │   └── types/
 ├── Dockerfile
-├── nginx.conf
+├── default.conf.template
 └── .dockerignore
 ```
 
@@ -153,12 +169,14 @@ ConnectionStrings__Default=Host=db;Database=lexagenda;Username=postgres;Password
 ### Backend
 
 1. `mcr.microsoft.com/dotnet/sdk:8.0` restaura y publica.
-2. `mcr.microsoft.com/dotnet/aspnet:8.0` ejecuta solo los binarios publicados como usuario no root.
+2. La etapa `test` ejecuta los tests y mide la cobertura.
+3. `mcr.microsoft.com/dotnet/aspnet:8.0` ejecuta solo los binarios publicados como usuario no root.
 
 ### Frontend
 
 1. `node:22-alpine` ejecuta `npm ci` y `npm run build`.
-2. `nginx:1.27-alpine` sirve solamente `dist/` y proxea `/api` al backend.
+2. La etapa `test` ejecuta Vitest con cobertura.
+3. `nginx:1.27-alpine` sirve solamente `dist/` y proxea `/api` al backend indicado por `BACKEND_URL`.
 
 Copiar primero los archivos de dependencias permite reutilizar el cache cuando solo cambia el código fuente. El SDK y `node_modules` no llegan a las imágenes finales.
 
@@ -211,7 +229,13 @@ Build del backend:
 docker build -t lexagenda-backend:dev ./backend
 ```
 
-La suite incluida tiene 13 casos sobre fechas y transiciones de casos, duraciones, solapamientos y estados de turnos.
+Hay pruebas de reglas y servicios en el backend, y pruebas con Vitest en el frontend. Para ejecutar estas últimas, después de instalar las dependencias:
+
+```bash
+npm --prefix frontend run test:ci
+```
+
+CI ejecuta ambas suites y publica sus reportes de cobertura. Después del despliegue a QA, corre las pruebas de integración de la API y las E2E con Playwright antes de habilitar la promoción a producción. El alcance y las exclusiones de cobertura están explicados en la [sección del TP5](decisiones.md#tp5---calidad-automatizada).
 
 ## Persistencia
 
@@ -230,11 +254,11 @@ La siguiente orden también elimina el volumen y, por lo tanto, los datos. Usala
 docker compose down -v
 ```
 
-## Variante con imágenes de registry
+## Variante de registry del TP2
 
-`docker-compose.registry.yml` conserva servicios, variables, healthcheck, dependencia y volumen; reemplaza los dos `build:` por imágenes `v0.1.0`.
+`docker-compose.registry.yml` se conserva como parte del TP2: reemplaza los dos `build:` por imágenes `v0.1.0`. Los despliegues actuales de QA y producción usan imágenes identificadas por el SHA del commit, como se explica en el TP7.
 
-Para completar la publicación del TP2:
+Para reproducir la publicación de esa etapa:
 
 1. Publicá `lexagenda-backend:v0.1.0` y `lexagenda-frontend:v0.1.0` en GHCR o Docker Hub.
 2. Hacé públicas ambas imágenes.
@@ -254,5 +278,7 @@ docker compose -f docker-compose.registry.yml config --quiet
 
 ## Documentación de la entrega
 
-- `decisiones.md`: elección de la aplicación, arquitectura, contenerización, persistencia, problemas y declaración de asistencia de IA.
-- `evidencias.md`: verificaciones y capturas reales de Compose, persistencia, tamaños y publicación en el registry.
+- [decisiones.md](decisiones.md): decisiones de los TP1 al TP9, problemas encontrados, resultados y declaración de uso de IA.
+- [Releases](https://github.com/Santiago-Buffaz/ingsoft3-tp01/releases): versiones de cierre y notas de cada entrega.
+- [infra/README.md](infra/README.md): instrucciones para crear y destruir preproducción con Terraform.
+- [evidencias.md](evidencias.md): verificaciones y capturas de los TP1 y TP2. Las evidencias de los trabajos posteriores se consultan en las corridas, los reportes y los servicios enlazados desde `decisiones.md`.
