@@ -22,3 +22,15 @@ frontend-coverage/
 # TP7: reportes de pruebas generados.
 frontend/playwright-report/
 frontend/test-results/
+
+# TP8: estado, claves locales y planes (pueden contener secretos).
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars
+*.tfvars.json
+*.tfplan
+crash.log
+crash.*.log
+.env.*
+# .terraform.lock.hcl SI se versiona.
